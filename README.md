@@ -2,6 +2,8 @@
 
 An old `pygame` shoot 'em up space game I made following a tutorial from somewhere.
 
+<img src="https://github.com/seanbreckenridge/random_shmup/blob/master/.demo/demo.gif">
+
 ```shell
 # Install python and pygame (https://www.pygame.org/download.shtml)
 python3 shmup.py
