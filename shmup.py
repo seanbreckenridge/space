@@ -33,7 +33,7 @@ def draw_text(surf, text, size, x, y, color):
     font = pygame.font.Font(font_name, size)
     text_surface = font.render(text, True, color)
     text_rect = text_surface.get_rect()
-    text_rect.midtop = (x, y)
+    text_rect.midtop = (int(x), int(y))
     surf.blit(text_surface, text_rect)
 
 
@@ -59,7 +59,7 @@ class Player(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.radius = 20
         # pygame.draw.circle(self.image, RED, self.rect.center, self.radius)
-        self.rect.centerx = WIDTH / 2
+        self.rect.centerx = int(WIDTH / 2)
         self.rect.bottom = HEIGHT - 10
         self.speedx = 0
         self.health = 3
@@ -196,7 +196,7 @@ for s in [1, 2]:
         pygame.mixer.Sound(os.path.join(sound_dir, f"Explosion{s}.wav"))
     )
 for e in explosion_sounds:
-    e.set_volume(0.4)
+    e.set_volume(0.2)
 pygame.mixer.music.load(os.path.join(sound_dir, "background.wav"))
 pygame.mixer.music.set_volume(0.4)
 explosions = {}
