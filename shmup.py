@@ -69,10 +69,14 @@ class Player(pygame.sprite.Sprite):
     def update(self):
         self.speedx = 0
         keystate = pygame.key.get_pressed()
-        if keystate[pygame.K_LEFT]:
+        if keystate[pygame.K_LEFT] or keystate[pygame.K_a]:
             self.speedx = -5
-        if keystate[pygame.K_RIGHT]:
+        if keystate[pygame.K_RIGHT] or keystate[pygame.K_d]:
             self.speedx = 5
+        if keystate[pygame.K_UP] or keystate[pygame.K_w]:
+            self.rect.y -= 5
+        if keystate[pygame.K_DOWN] or keystate[pygame.K_s]:
+            self.rect.y += 5
         if keystate[pygame.K_SPACE]:
             self.shoot()
         self.rect.x += self.speedx
@@ -80,6 +84,10 @@ class Player(pygame.sprite.Sprite):
             self.rect.right = WIDTH
         if self.rect.left < 0:
             self.rect.left = 0
+        if self.rect.y > HEIGHT - 30:
+            self.rect.y = HEIGHT - 30
+        if self.rect.y < 0:
+            self.rect.y = 0
 
     def shoot(self):
         now = pygame.time.get_ticks()
@@ -116,9 +124,8 @@ class Mob(pygame.sprite.Sprite):
             self.last_update = now
             self.rot = (self.rot + self.rot_speed) % 360
             new_image = pygame.transform.rotate(self.image_orig, self.rot)
-            old_center = (
-                self.rect.center
-            )  # make sure center stays the same when rotated
+            # make sure center stays the same when rotated
+            old_center = self.rect.center
             self.image = new_image
             self.rect = self.image.get_rect()
             self.rect.center = old_center
@@ -215,7 +222,7 @@ def show_go_screen():
     screen.blit(background, background_rect)
     draw_text(screen, "SPACE!", 64, WIDTH / 2, HEIGHT / 4, WHITE)
     draw_text(
-        screen, "arrow keys move, space to fire", 22, WIDTH / 2, HEIGHT / 2, WHITE
+        screen, "arrow keys/wasd move, space to fire", 22, WIDTH / 2, HEIGHT / 2, WHITE
     )
     draw_text(screen, "press a key to begin", 18, WIDTH / 2, HEIGHT * 3 / 4, WHITE)
     if not score == 0:
