@@ -1,5 +1,7 @@
+from __future__ import annotations
 import os
 import random
+from typing import Dict, Literal, List, NamedTuple
 
 import pygame
 
@@ -15,6 +17,9 @@ GREEN = (0, 255, 0)
 BLUE = (0, 0, 255)
 YELLOW = (255, 255, 0)
 
+# global constants
+START_ASTEROID_COUNT = 13
+
 # initialize, create window
 pygame.init()
 pygame.mixer.init()
@@ -28,6 +33,36 @@ sound_dir = os.path.join(os.path.dirname(__file__), "sound")
 
 font_name = pygame.font.match_font("arial")
 
+# load graphics
+background = pygame.image.load(os.path.join(img_dir, "darkPurple.png")).convert()
+background_rect = background.get_rect()
+player_img = pygame.image.load(os.path.join(img_dir, "player.png")).convert()
+meteor_img = pygame.image.load(os.path.join(img_dir, "meteor.png")).convert()
+bullet_img = pygame.image.load(os.path.join(img_dir, "laser.png")).convert()
+heart_img = pygame.image.load(os.path.join(img_dir, "hudHeart_full.png")).convert()
+heart_img.set_colorkey(BLACK)
+shoot_sound = pygame.mixer.Sound(os.path.join(sound_dir, "laser.wav"))
+shoot_sound.set_volume(0.2)
+explosion_sounds = []
+for s in [1, 2]:
+    explosion_sounds.append(
+        pygame.mixer.Sound(os.path.join(sound_dir, f"Explosion{s}.wav"))
+    )
+for e in explosion_sounds:
+    e.set_volume(0.2)
+pygame.mixer.music.load(os.path.join(sound_dir, "background.wav"))
+pygame.mixer.music.set_volume(0.4)
+explosions: Dict[Literal["sm", "lg", "huge"], List[pygame.Surface]] = {}
+explosions["sm"] = []
+explosions["lg"] = []
+explosions["huge"] = []
+for i in range(9):
+    filename = "regularExplosion0{}.png".format(i)
+    expl_img = pygame.image.load(os.path.join(explosions_dir, filename))
+    explosions["sm"].append(pygame.transform.scale(expl_img, (40, 40)))
+    explosions["lg"].append(pygame.transform.scale(expl_img, (75, 75)))
+    explosions["huge"].append(pygame.transform.scale(expl_img, (170, 170)))
+
 
 def draw_text(surf, text, size, x, y, color):
     font = pygame.font.Font(font_name, size)
@@ -35,12 +70,6 @@ def draw_text(surf, text, size, x, y, color):
     text_rect = text_surface.get_rect()
     text_rect.midtop = (int(x), int(y))
     surf.blit(text_surface, text_rect)
-
-
-def spawn_mob():
-    m = Mob()
-    all_sprites.add(m)
-    mobs.add(m)
 
 
 def update_hearts(surf, x, y, hp, img):
@@ -79,6 +108,9 @@ class Player(pygame.sprite.Sprite):
             self.rect.y += 5
         if keystate[pygame.K_SPACE]:
             self.shoot()
+        if keystate[pygame.K_ESCAPE] or keystate[pygame.K_q]:
+            pygame.quit()
+            exit(0)
         self.rect.x += self.speedx
         if self.rect.right > WIDTH:
             self.rect.right = WIDTH
@@ -94,8 +126,8 @@ class Player(pygame.sprite.Sprite):
         if now - self.last_shot > self.shoot_delay:
             self.last_shot = now
             bullet = Bullet(self.rect.centerx, self.rect.top)
-            all_sprites.add(bullet)
-            bullets.add(bullet)
+            state.all_sprites.add(bullet)
+            state.bullets.add(bullet)
             shoot_sound.play()
 
 
@@ -188,37 +220,7 @@ class Explosion(pygame.sprite.Sprite):
                 self.rect.center = center
 
 
-background = pygame.image.load(os.path.join(img_dir, "darkPurple.png")).convert()
-background_rect = background.get_rect()
-player_img = pygame.image.load(os.path.join(img_dir, "player.png")).convert()
-meteor_img = pygame.image.load(os.path.join(img_dir, "meteor.png")).convert()
-bullet_img = pygame.image.load(os.path.join(img_dir, "laser.png")).convert()
-heart_img = pygame.image.load(os.path.join(img_dir, "hudHeart_full.png")).convert()
-heart_img.set_colorkey(BLACK)
-shoot_sound = pygame.mixer.Sound(os.path.join(sound_dir, "laser.wav"))
-shoot_sound.set_volume(0.2)
-explosion_sounds = []
-for s in [1, 2]:
-    explosion_sounds.append(
-        pygame.mixer.Sound(os.path.join(sound_dir, f"Explosion{s}.wav"))
-    )
-for e in explosion_sounds:
-    e.set_volume(0.2)
-pygame.mixer.music.load(os.path.join(sound_dir, "background.wav"))
-pygame.mixer.music.set_volume(0.4)
-explosions = {}
-explosions["sm"] = []
-explosions["lg"] = []
-explosions["huge"] = []
-for i in range(9):
-    filename = "regularExplosion0{}.png".format(i)
-    expl_img = pygame.image.load(os.path.join(explosions_dir, filename))
-    explosions["sm"].append(pygame.transform.scale(expl_img, (40, 40)))
-    explosions["lg"].append(pygame.transform.scale(expl_img, (75, 75)))
-    explosions["huge"].append(pygame.transform.scale(expl_img, (170, 170)))
-
-
-def show_go_screen():
+def show_go_screen(score: int) -> None:
     screen.blit(background, background_rect)
     draw_text(screen, "SPACE!", 64, WIDTH / 2, HEIGHT / 4, WHITE)
     draw_text(
@@ -228,78 +230,119 @@ def show_go_screen():
     if not score == 0:
         draw_text(screen, f"{score}", 18, WIDTH / 2, 10, WHITE)
     pygame.display.flip()
-    Waiting = True
-    while Waiting:
+    waiting = True
+    while waiting:
         clock.tick(FPS)
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 pygame.quit()
+                exit(0)
             if event.type == pygame.KEYUP:
-                Waiting = False
+                waiting = False
+                if event.key == pygame.K_ESCAPE or event.key == pygame.K_q:
+                    pygame.quit()
+                    exit(0)
 
 
-score = 0
-running = True
-game_over = True
-pygame.mixer.music.play(loops=-1)  # repeat music
-while running:
-    if game_over:
-        show_go_screen()
-        game_over = False
-        all_sprites = pygame.sprite.Group()
-        mobs = pygame.sprite.Group()
-        bullets = pygame.sprite.Group()
+class State(NamedTuple):
+    all_sprites: pygame.sprite.Group
+    mobs: pygame.sprite.Group
+    bullets: pygame.sprite.Group
+    player: Player
+
+    @staticmethod
+    def reset_state() -> State:
+        all_sprites: pygame.sprite.Group = pygame.sprite.Group()
+        mobs: pygame.sprite.Group = pygame.sprite.Group()
+        bullets: pygame.sprite.Group = pygame.sprite.Group()
         player = Player()
         all_sprites.add(player)
-        for i in range(13):
+        for _ in range(START_ASTEROID_COUNT):
             m = Mob()
             all_sprites.add(m)
             mobs.add(m)
-        score = 0
 
-    clock.tick(FPS)
-    # Process Inputs
-    for event in pygame.event.get():
-        # check if we should close the window
-        if event.type == pygame.QUIT:
-            running = False
+        return State(all_sprites, mobs, bullets, player)
 
-    # Update
+    def spawn_mob(self) -> None:
+        m = Mob()
+        self.all_sprites.add(m)
+        self.mobs.add(m)
 
-    all_sprites.update()
 
-    hits = pygame.sprite.groupcollide(mobs, bullets, True, True)
-    for hit in hits:
-        score += 100
-        random.choice(explosion_sounds).play()
-        expl = Explosion(hit.rect.center, "lg")
-        all_sprites.add(expl)
-        spawn_mob()
-    # check to see if mob hit the player
-    hits = pygame.sprite.spritecollide(player, mobs, True, pygame.sprite.collide_circle)
-    for hit in hits:
-        player.health -= 1
-        random.choice(explosion_sounds).play()
-        if player.health > 0:
-            expl = Explosion(hit.rect.center, "sm")
-            all_sprites.add(expl)
-            spawn_mob()
-        else:
-            player.kill()
-            death_expl = Explosion(hit.rect.center, "huge")
-            all_sprites.add(death_expl)
-            break
+pygame.mixer.music.play(loops=-1, fade_ms=800)  # repeat music
 
-    if not player.alive() and not death_expl.alive():
-        game_over = True
+state = State.reset_state()
 
-    # Render
-    screen.fill(BLACK)
-    screen.blit(background, background_rect)
-    all_sprites.draw(screen)
-    # draw_text(screen, f"{score}", 18, WIDTH / 2, 10, WHITE)
-    update_hearts(screen, WIDTH - 90, 5, player.health, heart_img)
-    # do this last; after drawing, flip the display
-    pygame.display.flip()
 
-pygame.quit()
+def game_loop():
+    global state
+    score: int = 0
+    game_over = True
+    death_expl = None
+
+    running = True
+    while running:
+        if game_over:
+            show_go_screen(score)
+            game_over = False
+            score = 0
+            state = State.reset_state()
+
+        clock.tick(FPS)
+
+        # Process Inputs
+        for event in pygame.event.get():
+            # check if we should close the window
+            if event.type == pygame.QUIT:
+                running = False
+
+        # Update
+        state.all_sprites.update()
+        for bullet_hit in pygame.sprite.groupcollide(
+            state.mobs, state.bullets, True, True
+        ):
+            score += 100
+            random.choice(explosion_sounds).play()
+            expl = Explosion(bullet_hit.rect.center, "lg")
+            state.all_sprites.add(expl)
+            state.spawn_mob()
+
+        # check to see if mob hit the player
+        for hit in pygame.sprite.spritecollide(
+            state.player, state.mobs, True, pygame.sprite.collide_circle
+        ):
+            state.player.health -= 1
+            random.choice(explosion_sounds).play()
+            if state.player.health > 0:
+                expl = Explosion(hit.rect.center, "sm")
+                state.all_sprites.add(expl)
+                state.spawn_mob()
+            else:
+                state.player.kill()
+                death_expl = Explosion(hit.rect.center, "huge")
+                state.all_sprites.add(death_expl)
+                break
+
+        if (
+            not state.player.alive()
+            and death_expl is not None
+            and not death_expl.alive()
+        ):
+            game_over = True
+
+        # Render
+        screen.fill(BLACK)
+        screen.blit(background, background_rect)
+        state.all_sprites.draw(screen)
+        # draw_text(screen, f"{score}", 18, WIDTH / 2, 10, WHITE)
+        update_hearts(screen, WIDTH - 90, 5, state.player.health, heart_img)
+        # do this last; after drawing, flip the display
+        pygame.display.flip()
+
+    pygame.quit()
+    return 0
+
+
+if __name__ == "__main__":
+    exit(game_loop())
